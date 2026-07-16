@@ -1,0 +1,27 @@
+{
+  "name": "insight2c-backend",
+  "version": "1.0.0",
+  "description": "Node/Express API for Insight2C — uploads a dataset, cleans it, runs Python-based EDA, and generates charts.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "data-analysis",
+    "eda",
+    "express",
+    "pandas"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "multer": "^2.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

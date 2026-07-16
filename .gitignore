@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+
+# Runtime data — user uploads and generated output should never be
+# committed; only the folder structure is kept via .gitkeep files.
+backend/uploads/*
+backend/cleaned_data/*
+backend/generated_charts/*
+!backend/uploads/.gitkeep
+!backend/cleaned_data/.gitkeep
+!backend/generated_charts/.gitkeep
+
+# Environment / secrets
+.env
+.env.local
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Test artifacts
+.pytest_cache/
+*.egg-info/

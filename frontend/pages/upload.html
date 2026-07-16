@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insight2C — Analytics Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/upload.css">
+    <link rel="stylesheet" href="/css/chat.css">
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-brand">
+            <div class="brand-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect width="28" height="28" rx="8" fill="#ea580c"/>
+                    <path d="M6 20L10 14L14 17L18 10L22 8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="22" cy="8" r="2" fill="white"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="brand-name">Insight2C</h1>
+                <p class="brand-sub">Data Analytics Platform</p>
+            </div>
+        </div>
+        <div class="header-status" id="headerStatus">
+            <span class="status-dot"></span>
+            <span>Ready</span>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+
+            <!-- Step 1: Upload -->
+            <div class="card" id="uploadCard">
+                <div class="card-header">
+                    <div class="step-badge">01</div>
+                    <h2>Upload Dataset</h2>
+                </div>
+
+                <div class="file-drop-zone" id="dropZone">
+                    <div class="drop-icon">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                            <path d="M20 28V12M20 12L14 18M20 12L26 18" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M8 30H32" stroke="#fdba74" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <p class="drop-label">Drop your file here</p>
+                    <p class="drop-sub">CSV, XLSX, or JSON · Max 50MB</p>
+                    <input type="file" id="fileInput" accept=".csv,.xlsx,.json" hidden>
+                    <button class="btn-outline" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+                </div>
+
+                <div class="file-info hidden" id="fileInfo">
+                    <div class="file-badge">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <rect width="16" height="16" rx="4" fill="#fed7aa"/>
+                            <path d="M4 8h8M4 5h8M4 11h5" stroke="#ea580c" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <span id="fileName">No file selected</span>
+                    </div>
+                </div>
+
+                <button class="btn-primary" id="uploadDatasetBtn">
+                    <span class="btn-text">Upload Dataset</span>
+                    <span class="btn-spinner hidden"></span>
+                </button>
+
+                <div class="status-msg" id="uploadStatus"></div>
+            </div>
+
+            <!-- Step 2: Configure -->
+            <div class="card card-disabled" id="configCard">
+                <div class="card-header">
+                    <div class="step-badge">02</div>
+                    <h2>Configure Chart</h2>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Chart Type</label>
+                    <select id="chartType" class="form-select">
+                        <option value="histogram">Histogram</option>
+                        <option value="bar">Bar Chart</option>
+                        <option value="pie">Pie Chart</option>
+                        <option value="scatter">Scatter Plot</option>
+                        <option value="heatmap">Heatmap</option>
+                        <option value="boxplot">Boxplot</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Chart Color</label>
+                    <div class="color-picker" id="colorPicker">
+                        <button class="color-btn active" data-color="orange" style="--c:#ea580c" title="Orange"></button>
+                        <button class="color-btn" data-color="blue" style="--c:#2563eb" title="Blue"></button>
+                        <button class="color-btn" data-color="green" style="--c:#16a34a" title="Green"></button>
+                        <button class="color-btn" data-color="red" style="--c:#dc2626" title="Red"></button>
+                        <button class="color-btn" data-color="purple" style="--c:#9333ea" title="Purple"></button>
+                        <button class="color-btn" data-color="pink" style="--c:#db2777" title="Pink"></button>
+                    </div>
+                    <input type="hidden" id="chartColor" value="orange">
+                </div>
+
+                <div class="form-group" id="binsContainer">
+                    <label class="form-label">Histogram Bins <span class="form-hint" id="binsValue">20</span></label>
+                    <input type="range" id="binsInput" value="20" min="5" max="100" step="5" class="range-slider">
+                </div>
+
+                <div class="form-group" id="xColumnContainer">
+                    <label class="form-label">X Column</label>
+                    <select id="xColumn" class="form-select"></select>
+                </div>
+
+                <div class="form-group" id="yColumnContainer">
+                    <label class="form-label" id="yColumnLabel">Y Column</label>
+                    <select id="yColumn" class="form-select"></select>
+                </div>
+
+                <div class="heatmap-note hidden" id="heatmapInfo">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <circle cx="7" cy="7" r="6" stroke="#ea580c" stroke-width="1.5"/>
+                        <path d="M7 5v4M7 4v.5" stroke="#ea580c" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Heatmap uses all numeric columns automatically
+                </div>
+            </div>
+
+            <!-- Step 3: Clean -->
+            <div class="card card-disabled" id="cleanCard">
+                <div class="card-header">
+                    <div class="step-badge">03</div>
+                    <h2>Data Cleaning</h2>
+                </div>
+
+                <div class="toggle-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="removeDuplicates" class="toggle-input">
+                        <span class="toggle-track"></span>
+                        <span>Remove Duplicates</span>
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="dropMissing" class="toggle-input">
+                        <span class="toggle-track"></span>
+                        <span>Drop Missing Rows</span>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Missing Value Strategy</label>
+                    <select id="missingStrategy" class="form-select">
+                        <option value="">None</option>
+                        <option value="mean">Fill with Mean</option>
+                        <option value="median">Fill with Median</option>
+                        <option value="mode">Fill with Mode</option>
+                    </select>
+                </div>
+
+                <button class="btn-primary btn-full" id="generateChartBtn">
+                    <span class="btn-text">Generate Chart</span>
+                    <span class="btn-spinner hidden"></span>
+                </button>
+
+                <div class="status-msg" id="message"></div>
+            </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+
+            <!-- Recommendations Banner -->
+            <div class="recommendations hidden" id="recommendationsBanner">
+                <p class="rec-label">Recommended Charts</p>
+                <div class="rec-chips" id="recChips"></div>
+            </div>
+
+            <!-- Chart Display -->
+            <div class="card chart-card" id="chartSection">
+                <div class="empty-state" id="emptyChartState">
+                    <div class="empty-icon">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                            <rect width="64" height="64" rx="20" fill="#fff7ed"/>
+                            <rect x="12" y="40" width="8" height="12" rx="2" fill="#fed7aa"/>
+                            <rect x="24" y="32" width="8" height="20" rx="2" fill="#fdba74"/>
+                            <rect x="36" y="24" width="8" height="28" rx="2" fill="#fb923c"/>
+                            <rect x="48" y="16" width="8" height="36" rx="2" fill="#ea580c"/>
+                        </svg>
+                    </div>
+                    <h3>No Chart Yet</h3>
+                    <p>Upload a dataset and configure your chart to get started</p>
+                </div>
+
+                <div class="chart-display hidden" id="chartDisplay">
+                    <div class="chart-toolbar">
+                        <span class="chart-title" id="chartTitle">Chart</span>
+                        <div class="chart-actions">
+                            <a id="downloadChartBtn" download class="btn-icon" title="Download Chart">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M2 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                                Chart
+                            </a>
+                            <a id="downloadDatasetBtn" download class="btn-icon" title="Download Cleaned Dataset">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                                    <path d="M5 8h6M5 5h4M5 11h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                                Dataset
+                            </a>
+                        </div>
+                    </div>
+                    <img id="chartImage" class="chart-img" alt="Generated chart">
+                </div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="stats-row hidden" id="statsRow">
+                <div class="stat-card">
+                    <p class="stat-label">Total Rows</p>
+                    <p class="stat-value" id="statRows">—</p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Total Columns</p>
+                    <p class="stat-value" id="statCols">—</p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Duplicate Rows</p>
+                    <p class="stat-value" id="statDups">—</p>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Missing Values</p>
+                    <p class="stat-value" id="statMissing">—</p>
+                </div>
+                <div class="stat-card" id="statQualityCard">
+                    <p class="stat-label">Data Quality Score</p>
+                    <p class="stat-value" id="statQuality">—</p>
+                </div>
+            </div>
+
+            <!-- Analytics Row -->
+            <div class="analytics-row hidden" id="analyticsRow">
+
+                <!-- Cleaning Report -->
+                <div class="card analytics-card">
+                    <h2 class="card-title">Cleaning Report</h2>
+                    <div id="cleaningReportContent"></div>
+                </div>
+
+                <!-- AI Insights -->
+                <div class="card analytics-card insights-card">
+                    <h2 class="card-title">Insights</h2>
+                    <ul class="insights-list" id="insightsList"></ul>
+                </div>
+
+            </div>
+
+            <!-- Chart History -->
+            <div class="card hidden" id="historyCard">
+                <div class="card-header">
+                    <h2>Chart History</h2>
+                    <button class="btn-ghost" id="clearHistoryBtn">Clear All</button>
+                </div>
+                <div class="history-grid" id="historyGrid"></div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- Chatbot Widget -->
+<div class="chat-widget hidden" id="chatWidget">
+    <div class="chat-header">
+        <h3>Dataset Assistant</h3>
+        <button id="closeChatBtn" class="btn-icon" style="font-size: 24px; padding: 0;">&times;</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        <div class="chat-message bot">
+            Hello! Ask me questions about your dataset.
+        </div>
+    </div>
+    <div class="chat-input-container">
+        <input type="text" id="chatInput" placeholder="E.g., What is the highest salary?" />
+        <button id="sendChatBtn" class="btn-primary" style="padding: 8px 16px;">Send</button>
+    </div>
+</div>
+<button id="openChatBtn" class="chat-toggle-btn hidden">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+</button>
+
+<script src="/js/upload.js"></script>
+<script src="/js/chat.js"></script>
+</body>
+</html>
