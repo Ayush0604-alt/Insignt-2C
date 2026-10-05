@@ -1,147 +1,330 @@
 # Insight2C
+**Exploratory data analysis in the browser.** Upload a CSV, Excel (`.xlsx`), or JSON file and get back a data-quality score, skew-aware summary statistics, IQR-based outlier detection, ranked correlations, plain-English insights, data-grounded chart recommendations, six chart types, and an AI assistant that answers questions about your data in natural language.
 
-**Upload a CSV/Excel/JSON file. Get a real exploratory data analysis back: data quality scoring, outlier detection, correlation strength, skew-aware summary statistics, plain-English insights, six chart types, and an AI-powered conversational data assistant — all in your browser.**
-
-Insight2C is a full-stack Exploratory Data Analysis (EDA) platform. A Node/Express API orchestrates a powerful Python backend (pandas, NumPy, DuckDB, Gemini AI, matplotlib, seaborn). The lightweight vanilla-JS frontend lets you upload a dataset, clean it, interactively explore it, and even chat with it using natural language.
-
----
-
-## 🛠️ Features: What We Use and Why
-
-Insight2C focuses on giving you actionable analytics instead of just a raw data dump. 
-
-- **Data Quality Scoring**
-  - **What:** A single 0–100 score combining missingness and duplicate-row penalties.
-  - **Why:** Analysts need an immediate, concrete answer to "Is this dataset usable?" before they waste time building charts on broken data.
-- **Narrative Insights & AI Data Assistant (Chatbot)**
-  - **What:** An integrated conversational widget powered by **Google Gemini** and **DuckDB**. 
-  - **Why:** Instead of guessing how to write complex SQL, you can ask questions like *"What is the average salary by department?"* Gemini translates your natural language into SQL, DuckDB executes it locally against the dataset for blazing-fast in-memory analytics, and Gemini replies with a human-readable answer.
-- **IQR-based Outlier Detection**
-  - **What:** Automatically identifies statistical outliers on every numeric column using the Interquartile Range (IQR).
-  - **Why:** Simple min/max values are often deceiving. IQR provides a mathematically robust way to flag skewed data.
-- **Grounded Chart Recommendations**
-  - **What:** Suggests charts contextually. E.g., it won't suggest a Heatmap unless there are at least two strongly correlated numeric columns, and it hides identifier columns (`user_id`) from pie charts.
-  - **Why:** Prevents users from generating useless visualizations (like a 60-slice pie chart) and guides them toward statistically significant relationships.
+Insight2C is a full-stack application: a Node.js/Express API handles uploads and routing, a Python engine (pandas, NumPy, matplotlib, seaborn, DuckDB) performs the analysis, and a lightweight vanilla-JavaScript frontend ties it together. The conversational assistant is powered by Google Gemini.
 
 ---
 
-## 🔄 User Workflow
+## Table of Contents
 
-1. **Upload:** Drag-and-drop a CSV, JSON, or Excel file into the app. The system immediately analyzes the columns, generates data quality scores, and provides natural-language insights.
-2. **Configure:** Select a chart type (Histogram, Bar, Pie, Scatter, Heatmap, Boxplot). The app dynamically filters the X/Y axis dropdowns based on the column types (categorical vs. numeric).
-3. **Clean:** Toggle switches to drop missing rows or remove duplicates on-the-fly before generating the chart.
-4. **Visualize & Export:** The app generates the requested chart and returns a high-resolution image, along with a link to download the freshly cleaned dataset.
-5. **Chat with Data:** Click the orange chat bubble in the bottom right corner to open the AI Data Assistant. Ask any analytical question, and it will run SQL under the hood to give you an accurate answer.
+- [Sample Output](#sample-output)
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [Running Tests](#running-tests)
+- [Notes and Limitations](#notes-and-limitations)
+- [License](#license)
 
 ---
 
-## 🏗️ Architecture
+## Sample Output
 
-Insight2C uses a multi-language micro-architecture where Node.js handles routing and client state, while Python handles the heavy mathematical lifting and AI integration.
+Charts generated from the included [`sample_data/employee_dataset.csv`](sample_data/employee_dataset.csv):
+
+| Bar chart | Box plot |
+|---|---|
+| ![Average salary by department](docs/sample-output/bar_avg_salary_by_department.png) | ![Salary distribution by department](docs/sample-output/boxplot_salary_by_department.png) |
+| **Correlation heatmap** | **Scatter plot** |
+| ![Correlation heatmap](docs/sample-output/correlation_heatmap.png) | ![Age vs. salary](docs/sample-output/scatter_age_vs_salary.png) |
+
+---
+
+## Features
+
+### Data quality scoring
+A single 0–100 score that answers "is this dataset usable?" before any charts are built. Missing cells cost up to 60 points and duplicate rows up to 40 points, since missing values usually block more analyses than a few duplicates do. A separate cleaning report flags fully empty columns and columns that look numeric but are stored as text (for example `"1,200"` or `"$45"`).
+
+### Statistical summary
+FFor every numeric column: mean, median, standard deviation, min/max, quartiles, IQR, and skewness. For categorical columns: number of unique values and the most common value with its share, with near-unique columns (more than 95% unique values, such as names or IDs) flagged as likely identifiers.
+### IQR-based outlier detection
+Values outside `Q1 − 1.5 × IQR` and `Q3 + 1.5 × IQR` are counted as outliers for each numeric column. This is more robust than min/max values on skewed data.
+
+### Correlation analysis
+Numeric column pairs are ranked by absolute Pearson correlation and labelled by strength (strong ≥ 0.7, moderate ≥ 0.4, weak ≥ 0.2).
+
+### Plain-English insights
+A short narrative of the most important findings (quality score, missingness, duplicates, skew, outliers, and notable correlations) in place of a raw statistics dump.
+
+### Data-grounded chart recommendations
+Each suggestion comes with a reason based on the actual data:
+- **Heatmap:** three or more numeric columns. The strongest correlation is named when one is moderate or strong.
+- **Scatter:** two or more numeric columns. The most correlated pair is named.
+- **Box plot:** only when outliers were actually detected.
+- **Bar / Pie:** only for categorical columns that are not identifier-like, which avoids charts such as a 500-slice pie.
+- **Histogram:** any numeric column.
+
+### On-the-fly cleaning
+Before a chart is generated, you can remove duplicate rows, drop rows with missing values, or fill missing values with the column mean, median, or mode. The cleaned dataset can be downloaded as a CSV.
+
+### AI data assistant
+A chat widget lets you ask questions such as *"What is the average salary by department?"*. Gemini (`gemini-2.5-flash`) translates the question into SQL, DuckDB runs it in-process against your dataset, and Gemini turns the result into a conversational answer.
+
+---
+
+## How It Works
+
+1. **Upload.** Drag and drop (or browse for) a `.csv`, `.xlsx`, or `.json` file of up to 50 MB. The app extracts column types and returns the dataset summary, quality score, and chart recommendations.
+2. **Configure.** Choose one of six chart types (histogram, bar, pie, scatter, heatmap, box plot). The X/Y column dropdowns are filtered by column type, and histograms have an adjustable bin count. Pick a chart color.
+3. **Clean.** Optionally remove duplicates, drop rows with missing values, or choose a fill strategy (mean, median, or mode).
+4. **Visualize and export.** The server cleans the data, renders the chart, and returns it with a refreshed summary, a cleaning report, plain-English insights, and a download link for the cleaned CSV.
+5. **Chat with your data.** Open the chat bubble in the bottom-right corner and ask analytical questions in natural language.
+
+---
+
+## Architecture
+
+Node.js owns HTTP, file handling, and orchestration. Each analysis step runs as a short-lived Python subprocess through a single shared runner (`pythonExecutor.js`), which returns JSON, a file path, or plain text.
 
 ```mermaid
 flowchart LR
     subgraph Browser
-        UI[Upload UI / Chat Widget<br/>vanilla HTML/CSS/JS]
+        UI["Upload UI + Chat widget<br/>(vanilla HTML/CSS/JS)"]
     end
 
     subgraph Node["Node.js / Express API"]
         Upload[fileController]
-        Clean[datasetCleaningService]
-        Summary[summaryService]
-        Insight[insightService]
-        Recommend[recommendationService]
         Chart[chartController]
         Chat[chatController]
-        Exec[pythonExecutor<br/><i>shared subprocess runner</i>]
+        Cols["/api/columns route"]
+        Services["Services<br/>column · summary · recommendation ·<br/>cleaning · insight · chart runner"]
+        Exec["pythonExecutor<br/>(shared subprocess runner)"]
     end
 
     subgraph Python["Python analysis engine"]
-        Stats[stats_utils.py<br/>outliers, correlation]
-        Viz[visualization/*.py<br/>6 chart types via matplotlib/seaborn]
-        Agent[chat_agent.py<br/>DuckDB SQL Execution & Gemini AI]
+        Analysis["analysis/<br/>dataset_summary · insight_generator ·<br/>chart_recommender"]
+        Cleaning["cleaning/<br/>clean_dataset · cleaning_report"]
+        Viz["visualization/<br/>6 chart scripts (matplotlib/seaborn)"]
+        Stats["utils/stats_utils.py<br/>(shared statistics)"]
+        Agent["analysis/chat_agent.py<br/>(Gemini + DuckDB)"]
     end
 
     UI -- "POST /api/upload-file" --> Upload
     UI -- "POST /api/generate-chart" --> Chart
+    UI -- "POST /api/columns" --> Cols
     UI -- "POST /api/chat" --> Chat
 
-    Upload --> Clean --> Exec
-    Chart --> Exec
+    Upload --> Services
+    Chart --> Services
+    Cols --> Services
+    Services --> Exec
     Chat --> Exec
-    Node --> Summary & Insight & Recommend --> Exec
 
-    Exec -- spawns --> Stats
+    Exec -- spawns --> Analysis
+    Exec -- spawns --> Cleaning
     Exec -- spawns --> Viz
     Exec -- spawns --> Agent
-    
-    Agent <-->|"Generates SQL & Explains Results"| GeminiAPI[Google Gemini API]
-    Agent <-->|"Executes SQL"| LocalData[(Local Dataset)]
 
-    Exec -- "JSON / Images / Text" --> UI
+    Analysis --> Stats
+    Agent <-->|"prompt → SQL,<br/>result → answer"| Gemini[(Google Gemini API)]
 ```
 
-Every JSON-returning Python script (`dataset_summary.py`, `insight_generator.py`, `chart_recommender.py`) shares the same statistics module (`stats_utils.py`), ensuring that the numbers in the Summary panel, the Insights panel, and the Chatbot are strictly consistent.
+`dataset_summary.py`, `insight_generator.py`, and `chart_recommender.py` all compute their statistics through `utils/stats_utils.py`, so the numbers in the Summary panel, the Insights panel, and the chart recommendations always agree. File loading and the chart color palette are centralized in `utils/io_utils.py`.
 
 ---
 
-## 💻 Tech Stack
+## Tech Stack
 
 | Layer | Tools |
 |---|---|
-| **Backend API** | Node.js, Express 5, Multer (file uploads) |
-| **Analysis Engine** | Python, pandas, NumPy, DuckDB (in-memory SQL) |
-| **AI Integration** | Google GenAI SDK (`gemini-2.5-flash`) |
+| **Backend API** | Node.js, Express 5, Multer (uploads), CORS, dotenv |
+| **Analysis engine** | Python, pandas, NumPy, DuckDB (in-process SQL) |
+| **AI integration** | Google Gen AI SDK (`google-genai`), model `gemini-2.5-flash` |
 | **Visualization** | matplotlib, seaborn |
-| **Frontend** | Vanilla HTML / CSS / JavaScript (No framework) |
+| **Frontend** | Vanilla HTML, CSS, and JavaScript (no framework) |
+| **Testing** | pytest |
 
 ---
 
-## 🚀 Getting Started
+## Project Structure
 
-**Prerequisites:** Node.js >= 18, Python >= 3.9
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/Ayush0604-alt/Insignt2C.git
-cd Insignt2C
-
-# 2. Setup Environment Variables
-# Create a .env file in the root directory and add your Gemini API Key
-echo "GEMINI_API_KEY=your_api_key_here" > .env
-
-# 3. Install Backend Dependencies
-cd backend
-npm install
-
-# 4. Setup Python Analysis Engine
-cd ../python
-python3 -m venv venv
-source venv/bin/activate        # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# 5. Run the Application
-cd ../backend
-npm start                       # or: npm run dev (auto-restart with nodemon)
+```
+Insignt-2C/
+├── backend/
+│   ├── server.js              # Entry point (port 5000)
+│   ├── app.js                 # Express app: middleware, static files, routes, error handling
+│   ├── routes/                # /api/upload-file, /api/generate-chart, /api/columns, /api/chat
+│   ├── controllers/           # Request handlers for upload, chart, and chat
+│   ├── services/              # Thin wrappers that invoke Python scripts
+│   ├── middleware/            # Multer upload config (type + 50 MB size limit)
+│   ├── uploads/               # Raw uploaded files (git-ignored)
+│   ├── cleaned_data/          # Cleaned CSV output (git-ignored)
+│   └── generated_charts/      # Rendered chart images (git-ignored)
+├── frontend/
+│   ├── pages/upload.html      # Single-page UI
+│   ├── js/                    # upload.js (main UI), chat.js (assistant widget)
+│   └── css/
+├── python/
+│   ├── analysis/              # Summary, insights, chart recommendations, chat agent
+│   ├── cleaning/              # Dataset cleaning and data-quality report
+│   ├── visualization/         # One script per chart type
+│   ├── utils/                 # Shared stats, I/O, and column helpers
+│   ├── tests/                 # pytest suite for stats_utils
+│   ├── requirements.txt
+│   └── requirements-dev.txt
+├── sample_data/               # Example dataset
+└── docs/sample-output/        # Example chart images
 ```
 
-Then open **http://localhost:5000** in your browser. You can upload the included [`sample_data/employee_dataset.csv`](sample_data/employee_dataset.csv) to try it immediately!
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Node.js** 18 or later
+- **Python** 3.9 or later
+- A **Google Gemini API key** (needed only for the chat assistant). You can create one in [Google AI Studio](https://aistudio.google.com/apikey).
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Ayush0604-alt/Insignt-2C.git
+cd Insignt-2C
+```
+
+### 2. Configure environment variables
+
+Create a file named `.env` in the **project root** (not inside `backend/`):
+
+```dotenv
+GEMINI_API_KEY=your_api_key_here
+```
+
+> On Windows, create this file in your editor rather than with `echo ... > .env` in PowerShell. PowerShell writes UTF-16 by default, which `dotenv` cannot read.
+
+### 3. Install backend dependencies
+
+```bash
+cd backend
+npm install
+```
+
+### 4. Set up the Python environment
+
+```bash
+cd ../python
+python -m venv venv
+
+# macOS / Linux
+source venv/bin/activate
+# Windows (PowerShell)
+venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt
+```
+
+### 5. Start the server
+
+From the **same terminal** (so the virtual environment's Python is on your `PATH`):
+
+```bash
+cd ../backend
+npm start          # or: npm run dev  (auto-restarts with nodemon)
+```
+
+Open **http://localhost:5000** in your browser. To try it straight away, upload [`sample_data/employee_dataset.csv`](sample_data/employee_dataset.csv).
 
 ---
 
-## 📡 API Reference
+## Configuration
 
-| Endpoint | Method | Body | Returns |
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| `/api/upload-file` | POST | `multipart/form-data` with `file` | Cleaned file path, columns, summary, insights, chart recommendations |
-| `/api/columns` | POST | `{ filePath }` | `{ all_columns, numeric_columns, categorical_columns }` |
-| `/api/generate-chart` | POST | `{ filePath, chartType, xColumn, yColumn, chartColor, removeDuplicates, dropMissing, missingStrategy }` | `{ imageUrl }` |
-| `/api/chat` | POST | `{ filePath, query }` | `{ reply }` (Natural language response from the AI assistant) |
+| `GEMINI_API_KEY` | For chat only | none | Google Gemini API key used by the AI data assistant. All other features work without it. |
+| `PYTHON_BIN` | No | `python` on Windows, `python3` elsewhere | Python interpreter the backend spawns. Set this to your virtual environment's interpreter (e.g. `python/venv/bin/python`) if you start the server from a shell where the venv isn't active. |
 
-`chartType` is one of: `histogram`, `bar`, `pie`, `scatter`, `heatmap`, `boxplot`.
+The server listens on port **5000** (set in `backend/server.js`).
 
 ---
 
-## 📝 License
+## API Reference
 
-ISC
+All endpoints accept and return JSON, except `/api/upload-file`, which accepts `multipart/form-data`. Errors are returned as `{ "message": "..." }` with a 4xx or 5xx status code.
+
+### `POST /api/upload-file`
+
+Uploads a dataset and runs the initial analysis.
+
+| Field | Type | Description |
+|---|---|---|
+| `file` | file | `.csv`, `.xlsx`, or `.json`, max 50 MB (larger files return `413`) |
+
+**Response:**
+```json
+{
+  "message": "File uploaded successfully",
+  "filePath": "<server path of the uploaded file>",
+  "columns": { "all_columns": [], "numeric_columns": [], "categorical_columns": [] },
+  "summary": { "rows": 0, "columns": 0, "data_quality_score": 0, "...": "..." },
+  "recommendations": [{ "chart": "scatter", "reason": "..." }]
+}
+```
+
+### `POST /api/generate-chart`
+
+Cleans the dataset with the selected options, renders a chart, and re-runs the analysis on the cleaned data.
+
+| Field | Type | Description |
+|---|---|---|
+| `filePath` | string | **Required.** The `filePath` returned by `/api/upload-file` |
+| `chartType` | string | **Required.** `histogram`, `bar`, `pie`, `scatter`, `heatmap`, or `boxplot` |
+| `xColumn` | string | X-axis column (or the value column for histogram, pie, and box plot) |
+| `yColumn` | string | Y-axis column for bar and scatter; optional group-by column for box plot |
+| `chartColor` | string | `orange` (default), `blue`, `green`, `red`, `purple`, `black`, `pink`, `yellow`, `brown`, or `gray` |
+| `bins` | number | Histogram bin count (default `20`) |
+| `removeDuplicates` | boolean | Drop duplicate rows |
+| `dropMissing` | boolean | Drop rows containing missing values |
+| `missingStrategy` | string | Fill missing values: `mean`, `median`, `mode`, or `""` (none) |
+
+**Response:**
+```json
+{
+  "message": "Chart generated successfully",
+  "imageUrl": "http://localhost:5000/generated_charts/<file>.png",
+  "cleanedFileUrl": "http://localhost:5000/cleaned_data/cleaned_<timestamp>.csv",
+  "summary": { "...": "..." },
+  "cleaningReport": { "...": "..." },
+  "insights": ["Overall data quality score: 94/100 (...)", "..."]
+}
+```
+
+### `POST /api/columns`
+
+| Field | Type | Description |
+|---|---|---|
+| `filePath` | string | Path returned by `/api/upload-file` |
+
+**Response:** `{ "all_columns": [], "numeric_columns": [], "categorical_columns": [] }`
+
+### `POST /api/chat`
+
+| Field | Type | Description |
+|---|---|---|
+| `filePath` | string | **Required.** Path returned by `/api/upload-file` |
+| `query` | string | **Required.** A natural-language question about the dataset |
+
+**Response:** `{ "reply": "<natural-language answer>" }`
+
+---
+
+## Running Tests
+
+The statistical core (`python/utils/stats_utils.py`) is covered by a pytest suite. From the repository root, with the virtual environment active:
+
+```bash
+pip install -r python/requirements-dev.txt
+pytest python/tests -v
+```
+
+---
+
+## Notes and Limitations
+
+- **Data privacy.** All statistics, cleaning, and charting run locally. The chat assistant sends the dataset's column names and types, your question, and the SQL query result to the Google Gemini API. It does not send the full dataset.
+- **Local use.** The API has no authentication and accepts server-side file paths from the client. Run it locally or on a trusted network, not as a public service.
+- **Storage.** Uploaded files, cleaned datasets, and generated charts accumulate in `backend/uploads/`, `backend/cleaned_data/`, and `backend/generated_charts/` and are not cleaned up automatically.
